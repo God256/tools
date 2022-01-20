@@ -123,6 +123,7 @@ function Checkin() {
         }
         const obj = JSON.parse(data)
         const Details = LogDetails ? `response:\n${data}` : ''
+        console.log(`debug--response:\n${data}`)
         if (obj.msg === "成功") {
           if (obj.data.signInfo.code === "A00000") {
             var AwardName = obj.data.signInfo.data.rewards[0].name;
