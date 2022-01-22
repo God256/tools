@@ -1,71 +1,64 @@
 /*
 爱奇艺会员签到脚本
-
-更新时间: 2020.9.6
+更新时间: 2022.1.21
 脚本兼容: QuantumultX, Surge4, Loon, JsBox, Node.js
 电报频道: @NobyDa
 问题反馈: @NobyDa_bot
-
 获取Cookie说明：
 打开爱奇艺App后(AppStore中国区)，点击"我的", 如通知成功获取cookie, 则可以使用此签到脚本.
 获取Cookie后, 请将Cookie脚本禁用并移除主机名，以免产生不必要的MITM.
 脚本将在每天上午9:00执行, 您可以修改执行时间。
-
-如果使用Node.js, 需自行安装'request'模块. 例: npm install request -g
-
+如果使用Node.js, 需自行安装'request'和'string-random'模块. 例: npm install request -g
 JsBox, Node.js用户抓取Cookie说明：
-开启抓包, 打开爱奇艺App后(AppStore中国区)，点击"我的" 返回抓包App 搜索请求头关键字 psp_cki= 或 P00001= 或 authcookie=
+开启抓包, 打开爱奇艺App后(AppStore中国区)，点击"我的" 返回抓包App 搜索请求头关键字 将cookie全部字段写入cookie
 提取字母数字混合字段, 到&结束, 填入以下单引号内即可.
 */
 
-var cookie = ''
+var cookie = '';
 
+let P00001 = '';
+let P00003 = '';
+let dfp = '';
+
+
+const timestamp = new Date().getTime()
 /*********************
-QuantumultX 远程脚本配置:
-**********************
-[task_local]
-# 爱奇艺会员签到
-0 9 * * * https://raw.githubusercontent.com/NobyDa/Script/master/iQIYI-DailyBonus/iQIYI.js
-
-[rewrite_local]
-# 获取Cookie
-^https?:\/\/iface(\d)?\.iqiyi\.com\/ url script-request-header https://raw.githubusercontent.com/NobyDa/Script/master/iQIYI-DailyBonus/iQIYI.js
-
-[mitm]
-hostname= ifac*.iqiyi.com
-
-**********************
-Surge 4.2.0+ 脚本配置:
-**********************
-[Script]
-爱奇艺签到 = type=cron,cronexp=0 9 * * *,script-path=https://raw.githubusercontent.com/NobyDa/Script/master/iQIYI-DailyBonus/iQIYI.js
-
-爱奇艺获取Cookie = type=http-request,pattern=^https?:\/\/iface(\d)?\.iqiyi\.com\/,script-path=https://raw.githubusercontent.com/NobyDa/Script/master/iQIYI-DailyBonus/iQIYI.js
-
-[MITM]
-hostname= ifac*.iqiyi.com
-
-************************
-Loon 2.1.0+ 脚本配置:
-************************
-
-[Script]
-# 爱奇艺签到
-cron "0 9 * * *" script-path=https://raw.githubusercontent.com/NobyDa/Script/master/iQIYI-DailyBonus/iQIYI.js
-
-# 获取Cookie
-http-request ^https?:\/\/iface(\d)?\.iqiyi\.com\/ script-path=https://raw.githubusercontent.com/NobyDa/Script/master/iQIYI-DailyBonus/iQIYI.js
-
-[Mitm]
-hostname= ifac*.iqiyi.com
-
-*/
-
+ QuantumultX 远程脚本配置:
+ **********************
+ [task_local]
+ # 爱奇艺会员签到
+ 0 9 * * * https://raw.githubusercontent.com/BlueSkyClouds/Script/master/nodejs/iQIYI-bak.js
+ [rewrite_local]
+ # 获取Cookie
+ ^https?:\/\/iface(\d)?\.iqiyi\.com\/ url script-request-header https://raw.githubusercontent.com/BlueSkyClouds/Script/master/nodejs/iQIYI-bak.js
+ [mitm]
+ hostname= ifac*.iqiyi.com
+ **********************
+ Surge 4.2.0+ 脚本配置:
+ **********************
+ [Script]
+ 爱奇艺签到 = type=cron,cronexp=0 9 * * *,script-path=https://raw.githubusercontent.com/BlueSkyClouds/Script/master/nodejs/iQIYI-bak.js
+ 爱奇艺获取Cookie = type=http-request,pattern=^https?:\/\/iface(\d)?\.iqiyi\.com\/,script-path=https://raw.githubusercontent.com/BlueSkyClouds/Script/master/nodejs/iQIYI-bak.js
+ [MITM]
+ hostname= ifac*.iqiyi.com
+ ************************
+ Loon 2.1.0+ 脚本配置:
+ ************************
+ [Script]
+ # 爱奇艺签到
+ cron "0 9 * * *" script-path=https://raw.githubusercontent.com/BlueSkyClouds/Script/master/nodejs/iQIYI-bak.js
+ # 获取Cookie
+ http-request ^https?:\/\/iface(\d)?\.iqiyi\.com\/ script-path=https://raw.githubusercontent.com/BlueSkyClouds/Script/master/nodejs/iQIYI-bak.js
+ [Mitm]
+ hostname= ifac*.iqiyi.com
+ */
 var LogDetails = false; // 响应日志
+var tasks = ["8a2186bb5f7bedd4", "b6e688905d4e7184", "acf8adbb5870eb29", "843376c6b3e2bf00", "8ba31f70013989a8", "CHANGE_SKIN"]; //浏览任务号
 
 var out = 10000; // 超时 (毫秒) 如填写, 则不少于3000
 
 var $nobyda = nobyda();
+
 
 (async () => {
   out = $nobyda.read("iQIYI_TimeOut") || out
@@ -73,13 +66,30 @@ var $nobyda = nobyda();
   LogDetails = $nobyda.read("iQIYI_LogDetails") === "true" ? true : LogDetails
   if ($nobyda.isRequest) {
     GetCookie()
-  } else if (cookie) {
+  }
+  if(cookie){
+    if(cookie.includes("__dfp") && cookie.includes("P00001") && cookie.includes("P00003")){
+    dfp = cookie.match(/__dfp=(.*?)@/)[1];
+    P00001 = cookie.match(/P00001=(.*?);/)[1];
+    P00003 = cookie.match(/P00003=(.*?);/)[1];
+    }
+  }
+
+  if (P00001 !== "" && P00003 !== "" && dfp !== "") {
     await login();
     await Checkin();
+    await WebCheckin();
     await Lottery(500);
+    for (let i = 0; i < tasks.length; i++){
+      await joinTask(tasks[i]);
+      await notifyTask(tasks[i]);
+      await new Promise(r => setTimeout(r, 5000));
+      await getTaskRewards(tasks[i]);
+    }
     await $nobyda.time();
   } else {
-    $nobyda.notify("爱奇艺会员", "", "签到终止, 未获取Cookie");
+    $nobyda.notify("爱奇艺会员", "", "签到终止, 由于爱奇艺更新了新的签到获取Cookie方式有所变更详情查看https://github.com/MayoBlueSky/My-Actions/blob/master/Secrets.md");
+    //$nobyda.notify("爱奇艺会员", "", "签到终止, 未获取Cookie");
   }
 })().finally(() => {
   $nobyda.done();
@@ -88,7 +98,7 @@ var $nobyda = nobyda();
 function login() {
   return new Promise(resolve => {
     var URL = {
-      url: 'https://cards.iqiyi.com/views_category/3.0/vip_home?secure_p=iPhone&scrn_scale=0&dev_os=0&ouid=0&layout_v=6&psp_cki=' + cookie + '&page_st=suggest&app_k=8e48946f144759d86a50075555fd5862&dev_ua=iPhone8%2C2&net_sts=1&cupid_uid=0&xas=1&init_type=6&app_v=11.4.5&idfa=0&app_t=0&platform_id=0&layout_name=0&req_sn=0&api_v=0&psp_status=0&psp_uid=451953037415627&qyid=0&secure_v=0&req_times=0',
+      url: 'https://cards.iqiyi.com/views_category/3.0/vip_home?secure_p=iPhone&scrn_scale=0&dev_os=0&ouid=0&layout_v=6&psp_cki=' + P00001 + '&page_st=suggest&app_k=8e48946f144759d86a50075555fd5862&dev_ua=iPhone8%2C2&net_sts=1&cupid_uid=0&xas=1&init_type=6&app_v=11.4.5&idfa=0&app_t=0&platform_id=0&layout_name=0&req_sn=0&api_v=0&psp_status=0&psp_uid=451953037415627&qyid=0&secure_v=0&req_times=0',
       headers: {
         sign: '7fd8aadd90f4cfc99a858a4b087bcc3a',
         t: '479112291'
@@ -98,6 +108,7 @@ function login() {
       const Details = LogDetails ? data ? `response:\n${data}` : '' : ''
       if (!error && data.match(/\"text\":\"\d.+?\u5230\u671f\"/)) {
         $nobyda.expire = data.match(/\"text\":\"(\d.+?\u5230\u671f)\"/)[1]
+        //P00003 = data.match(/img7.iqiyipic.com\/passport\/.+?passport_(.*?)_/)[1]   //通过头像链接获取userid
         console.log(`爱奇艺-查询成功: ${$nobyda.expire} ${Details}`)
       } else {
         console.log(`爱奇艺-查询失败${error || ': 无到期数据 ⚠️'} ${Details}`)
@@ -109,11 +120,43 @@ function login() {
 }
 
 function Checkin() {
+  const stringRandom = require('string-random');
   return new Promise(resolve => {
+    const sign_date = {
+      agentType: "1",
+      agentversion: "1.0",
+      appKey: "basic_pcw",
+      authCookie: P00001,
+      qyid: md5(stringRandom(16)),
+      task_code: "natural_month_sign",
+      timestamp: timestamp,
+      typeCode: "point",
+      userId: P00003,
+    };
+    const post_date = {
+	  "natural_month_sign": {
+		"agentType": "1",
+		"agentversion": "1",
+		"authCookie": P00001,
+		"qyid": md5(stringRandom(16)),
+		"taskCode": "iQIYI_mofhr",
+		"verticalCode": "iQIYI"
+      }
+    };
+    const sign = k("UKobMjDMsDoScuWOfp6F", sign_date, {
+      split: "|",
+      sort: !0,
+      splitSecretKey: !0
+    });
     var URL = {
-      url: 'https://tc.vip.iqiyi.com/taskCenter/task/queryUserTask?autoSign=yes&P00001=' + cookie
+      url: 'https://community.iqiyi.com/openApi/task/execute?' + w(sign_date) + "&sign=" + sign,
+      JSON: true,
+      headers: {
+        'Content-Type':'application/json'
+      },
+      body: JSON.stringify(post_date)
     }
-    $nobyda.get(URL, function(error, response, data) {
+    $nobyda.post(URL, function(error, response, data) {
       if (error) {
         $nobyda.data = "签到失败: 接口请求出错 ‼️"
         console.log(`爱奇艺-${$nobyda.data} ${error}`)
@@ -123,16 +166,14 @@ function Checkin() {
         }
         const obj = JSON.parse(data)
         const Details = LogDetails ? `response:\n${data}` : ''
-        console.log(`debug--response:\n${data}`)
-        if (obj.msg === "成功") {
-          if (obj.data.signInfo.code === "A00000") {
-            var AwardName = obj.data.signInfo.data.rewards[0].name;
-            var quantity = obj.data.signInfo.data.rewards[0].value;
-            var continued = obj.data.signInfo.data.continueSignDaysSum;
-            $nobyda.data = "签到成功: " + AwardName + quantity + ", 已连签" + continued + "天 🎉"
+        if (obj.code === "A00000") {
+          if (obj.data.code === "A0000") {
+            var quantity = obj.data.data.rewards[0].rewardCount;
+            var continued = obj.data.data.signDays;
+            $nobyda.data = "签到成功: 获得积分" + quantity + ", 累计签到" + continued + "天 🎉"
             console.log(`爱奇艺-${$nobyda.data} ${Details}`)
           } else {
-            $nobyda.data = "签到失败: " + obj.data.signInfo.msg + " ⚠️"
+            $nobyda.data = "签到失败: " + obj.data.msg + " ⚠️"
             console.log(`爱奇艺-${$nobyda.data} ${Details}`)
           }
         } else {
@@ -146,11 +187,68 @@ function Checkin() {
   })
 }
 
+function WebCheckin() {
+  return new Promise(resolve => {
+    const web_sign_date = {
+      agenttype: "1",
+      agentversion: "0",
+      appKey: "basic_pca",
+      appver: "0",
+      authCookie: P00001,
+      channelCode: "sign_pcw",
+      dfp: dfp,
+      scoreType: "1",
+      srcplatform: "1",
+      typeCode: "point",
+      userId: P00003,
+      user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36",
+      verticalCode: "iQIYI"
+    };
+
+    const sign = k("DO58SzN6ip9nbJ4QkM8H", web_sign_date, {
+      split: "|",
+      sort: !0,
+      splitSecretKey: !0
+    });
+    var URL = {
+      url: 'https://community.iqiyi.com/openApi/score/add?' + w(web_sign_date) + "&sign=" + sign
+    }
+    $nobyda.get(URL, function(error, response, data) {
+      if (error) {
+        $nobyda.data = "网页端签到失败: 接口请求出错 ‼️"
+        console.log(`爱奇艺-${$nobyda.data} ${error}`)
+      } else {
+        if(!isJSON_test(data)){
+          return false;
+        }
+        const obj = JSON.parse(data)
+        const Details = LogDetails ? `response:\n${data}` : ''
+        if (obj.code === "A00000") {
+          if (obj.data[0].code === "A0000") {
+            var quantity = obj.data[0].score;
+            var continued = obj.data[0].continuousValue;
+            $nobyda.data = "网页端签到成功: 获得积分" + quantity + ", 累计签到" + continued + "天 🎉"
+            console.log(`爱奇艺-${$nobyda.data} ${Details}`)
+          } else {
+            $nobyda.data = "网页端签到失败: " + obj.data[0].message + " ⚠️"
+            console.log(`爱奇艺-${$nobyda.data} ${Details}`)
+          }
+        } else {
+          $nobyda.data = "网页端签到失败: Cookie无效 ⚠️"
+          console.log(`爱奇艺-${$nobyda.data} ${Details}`)
+        }
+      }
+      resolve()
+    })
+    if (out) setTimeout(resolve, out)
+  })
+}
+
 function Lottery(s) {
   return new Promise(resolve => {
     $nobyda.times++
       const URL = {
-        url: 'https://iface2.iqiyi.com/aggregate/3.0/lottery_activity?app_k=0&app_v=0&platform_id=0&dev_os=0&dev_ua=0&net_sts=0&qyid=0&psp_uid=0&psp_cki=' + cookie + '&psp_status=0&secure_p=0&secure_v=0&req_sn=0'
+        url: 'https://iface2.iqiyi.com/aggregate/3.0/lottery_activity?app_k=0&app_v=0&platform_id=0&dev_os=0&dev_ua=0&net_sts=0&qyid=0&psp_uid=0&psp_cki=' + P00001 + '&psp_status=0&secure_p=0&secure_v=0&req_sn=0'
       }
     setTimeout(() => {
       $nobyda.get(URL, async function(error, response, data) {
@@ -161,14 +259,14 @@ function Lottery(s) {
         } else {
           const obj = JSON.parse(data);
           const Details = LogDetails ? `response:\n${data}` : ''
-          $nobyda.last = data.match(/(机会|已经)用完/) ? true : false
+          $nobyda.last = !!data.match(/(机会|已经)用完/)
           if (obj.awardName && obj.code === 0) {
             $nobyda.data += !$nobyda.last ? `\n抽奖成功: ${obj.awardName.replace(/《.+》/, "未中奖")} 🎉` : `\n抽奖失败: 今日已抽奖 ⚠️`
             console.log(`爱奇艺-抽奖明细: ${obj.awardName.replace(/《.+》/, "未中奖")} 🎉 (${$nobyda.times}) ${Details}`)
           } else if (data.match(/\"errorReason\"/)) {
-            msg = data.match(/msg=.+?\)/) ? data.match(/msg=(.+?)\)/)[1].replace(/用户(未登录|不存在)/, "Cookie无效") : ""
-            $nobyda.data += `\n抽奖失败: ${msg || `未知错误`} ⚠️`
-            console.log(`爱奇艺-抽奖失败: ${msg || `未知错误`} ⚠️ (${$nobyda.times}) ${msg ? Details : `response:\n${data}`}`)
+            const msg = data.match(/msg=.+?\)/) ? data.match(/msg=(.+?)\)/)[1].replace(/用户(未登录|不存在)/, "Cookie无效") : ""
+            $nobyda.data += `\n抽奖失败: ${msg || `未知错误 Cookie疑似失效`} ⚠️`
+            console.log(`爱奇艺-抽奖失败: ${msg || `未知错误 Cookie疑似失效`} ⚠️ (${$nobyda.times}) ${msg ? Details : `response:\n${data}`}`)
             console.log(data)
             s = s + 500;
             if(s <= 4500){
@@ -183,7 +281,7 @@ function Lottery(s) {
           await Lottery(s)
         } else {
           const expires = $nobyda.expire ? $nobyda.expire.replace(/\u5230\u671f/, "") : "获取失败 ⚠️"
-          if (!$nobyda.isNode) $nobyda.notify("爱奇艺", "到期时间: " + expires, $nobyda.data)
+          if (!$nobyda.isNode) $nobyda.notify("爱奇艺", "到期时间: " + expires, $nobyda.data);
         }
         resolve()
       })
@@ -192,9 +290,53 @@ function Lottery(s) {
   })
 }
 
+function joinTask(task) {
+  return new Promise(resolve => {
+    $nobyda.get('https://tc.vip.iqiyi.com/taskCenter/task/joinTask?taskCode=' + task + '&lang=zh_CN&platform=0000000000000000&P00001=' + P00001, function (error, response, data) {resolve()})
+    if (out) setTimeout(resolve, out)
+  })
+}
+
+function notifyTask(task) {
+  return new Promise(resolve => {
+    $nobyda.get('https://tc.vip.iqiyi.com/taskCenter/task/notify?taskCode=' + task + '&lang=zh_CN&platform=0000000000000000&P00001=' + P00001, function (error, response, data) {resolve()})
+    if (out) setTimeout(resolve, out)
+  })
+}
+
+function getTaskRewards(task) {
+  return new Promise(resolve => {
+    $nobyda.get('https://tc.vip.iqiyi.com/taskCenter/task/getTaskRewards?taskCode=' + task + '&lang=zh_CN&platform=0000000000000000&P00001=' + P00001, function (error, response, data) {
+      if (error) {
+        $nobyda.data += "\n浏览奖励失败: 接口请求出错 ‼️"
+        console.log(`爱奇艺-抽奖失败: \n${data} (${$nobyda.times})`)
+      } else {
+        const obj = JSON.parse(data)
+        const Details = LogDetails ? `response:\n${data}` : ''
+        if (obj.msg === "成功") {
+          if (obj.code === "A00000") {
+            if(obj.dataNew[0] !== undefined){ //任务未完成
+              $nobyda.data += `\n浏览奖励成功: ${obj.dataNew[0].name + obj.dataNew[0].value} 🎉`
+              console.log(`爱奇艺-浏览奖励成功: ${obj.dataNew[0].name + obj.dataNew[0].value} 🎉`)
+            }
+          } else {
+            $nobyda.data += `\n浏览奖励失败: ${obj.msg} ⚠️`
+            console.log(`爱奇艺-抽奖失败: ${obj.msg || `未知错误`} ⚠️ (${$nobyda.times}) ${msg ? Details : `response:\n${data}`}`)
+          }
+        } else {
+          $nobyda.data += "\n浏览奖励失败: Cookie无效/接口失效 ⚠️"
+          console.log(`爱奇艺-浏览奖励失败: \n${data}`)
+        }
+        resolve()
+      }
+    })
+    if (out) setTimeout(resolve, out)
+  })
+}
+
 function GetCookie() {
-  var CKA = $request.url.match(/(psp_cki=|P00001=|authcookie=)([A-Za-z0-9]+)/)
-  var CKB = JSON.stringify($request.headers).match(/(psp_cki=|P00001=|authcookie=)([A-Za-z0-9]+)/)
+  var CKA = $request.url.match(/(psp_cki=|P00001=|authcookie=|P00003=|__dfp=)([A-Za-z0-9]+)/)
+  var CKB = JSON.stringify($request.headers).match(/(psp_cki=|P00001=|authcookie=|P00003=|__dfp=)([A-Za-z0-9]+)/)
   var iQIYI = CKA || CKB || null
   var RA = $nobyda.read("CookieQY")
   if (iQIYI) {
@@ -234,7 +376,7 @@ function nobyda() {
         request
       })
     } else {
-      return (null)
+      return null
     }
   })()
   const notify = (title, subtitle, message) => {
@@ -297,6 +439,43 @@ function nobyda() {
       $http.get(options);
     }
   }
+  const post = (options, callback) => {
+    if (!options.body) options.headers['Content-Type'] = 'application/x-www-form-urlencoded'
+    if (isQuanX) {
+      if (typeof options == "string") options = {
+        url: options
+      }
+      options["method"] = "POST"
+      $task.fetch(options).then(response => {
+        callback(null, adapterStatus(response), response.body)
+      }, reason => callback(reason.error, null, null))
+    }
+    if (isSurge) {
+      options.headers['X-Surge-Skip-Scripting'] = false
+      $httpClient.post(options, (error, response, body) => {
+        callback(error, adapterStatus(response), body)
+      })
+    }
+    if (isNode) {
+      node.request.post(options, (error, response, body) => {
+        callback(error, adapterStatus(response), body)
+      })
+    }
+    if (isJSBox) {
+      if (typeof options == "string") options = {
+        url: options
+      }
+      options["header"] = options["headers"]
+      options["handler"] = function(resp) {
+        let error = resp.error;
+        if (error) error = JSON.stringify(resp.error)
+        let body = resp.data;
+        if (typeof body == "object") body = JSON.stringify(resp.data)
+        callback(error, adapterStatus(resp.response), body)
+      }
+      $http.post(options);
+    }
+  }
 
   const log = (message) => console.log(message)
   const time = () => {
@@ -314,6 +493,7 @@ function nobyda() {
     write,
     read,
     get,
+    post,
     log,
     time,
     times,
@@ -334,4 +514,33 @@ function isJSON_test(str) {
         }
     }
     //console.log('It is not a string!')
+}
+
+function k(e, t) {
+  var a = arguments.length > 2 && void 0 !== arguments[2] ? arguments[2] : {}
+    , n = a.split
+    , c = void 0 === n ? "|" : n
+    , r = a.sort
+    , s = void 0 === r || r
+    , o = a.splitSecretKey
+    , i = void 0 !== o && o
+    , l = s ? Object.keys(t).sort() : Object.keys(t)
+    , u = l.map((function (e) {
+      return "".concat(e, "=").concat(t[e])
+    }
+    )).join(c) + (i ? c : "") + e;
+  return md5(u)
+}
+function md5(date){
+  const crypto = require('crypto');
+  return crypto.createHash("md5").update(date, "utf8").digest("hex")
+}
+function w(){
+  var e = arguments.length > 0 && void 0 !== arguments[0] ? arguments[0] : {}
+    , t = [];
+  return Object.keys(e).forEach((function (a) {
+    t.push("".concat(a, "=").concat(e[a]))
+  }
+  )),
+    t.join("&")
 }
